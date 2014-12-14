@@ -1,18 +1,51 @@
 #include "opencv2/core/core_c.h"
 #include "opencv2/ml/ml.hpp"
 
+#include <iostream>
+#include <fstream>
+
+// Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + FamilySize
+
+const int numVar = 9;
+// false = numerical, true - string
+static bool isString[17] = { false, false, false, true, true, false, false, false, true, false,
+                             true, true, true, false, true, true, true };
+static bool ignore[17] = { true, false, false, true, false, false, false, false, true, false,
+                           true, false, true, false, true, true, true };
+
+float Convert(const std::string& val, int i)
+{
+    if (!isString[i])
+    {
+        std::stringstream ss(val);
+        float res;
+        ss >> res;
+        return res;
+    }
+    
+    if (val == "\"male\"")
+        return 0.;
+    if (val == "\"female\"")
+        return 1.;
+    if (val == "\"C\"")
+        return 0.;
+    if (val == "\"Q\"")
+        return 1.;
+    if (val == "\"S\"")
+        return 2.;
+
+    throw 3;
+}
+
 // This function reads data and responses from the file <filename>
 int read_num_class_data(const char* filename, int var_count,
     CvMat** data, CvMat** responses)
 {
-    const int M = 1024;
-    FILE* f = fopen(filename, "rt");
+    std::ifstream f(filename);
     CvMemStorage* storage;
     CvSeq* seq;
-    char buf[M + 2];
     float* el_ptr;
     CvSeqReader reader;
-    int i, j;
 
     if (!f)
         return 0;
@@ -21,7 +54,32 @@ int read_num_class_data(const char* filename, int var_count,
     storage = cvCreateMemStorage();
     seq = cvCreateSeq(0, sizeof(*seq), (var_count + 1)*sizeof(float), storage);
 
-    for (;;)
+    std::string line, value, temp;
+    std::stringstream ss;
+
+    while (f)
+    {
+        int j = 0;
+        std::getline(f, line);
+        ss << line;
+        for (int i = 0; std::getline(ss, value, ','); i++)
+        {
+            if (isString[i])
+            while (value[value.size() - 1] != '"')
+            {
+                std::getline(ss, temp, ',');
+                value += temp;
+            }
+            if (ignore[i])
+                continue;
+
+            el_ptr[j++] = Convert(value, i);
+        }
+        cvSeqPush(seq, el_ptr);
+        f.ignore(1);
+    }
+
+    /*for (;;)
     {
         char* ptr;
         if (!fgets(buf, M, f) || !strchr(buf, ','))
@@ -38,20 +96,20 @@ int read_num_class_data(const char* filename, int var_count,
             break;
         cvSeqPush(seq, el_ptr);
     }
-    fclose(f);
+    fclose(f);*/
 
     *data = cvCreateMat(seq->total, var_count, CV_32F);
     *responses = cvCreateMat(seq->total, 1, CV_32F);
 
     cvStartReadSeq(seq, &reader);
 
-    for (i = 0; i < seq->total; i++)
+    for (int i = 0; i < seq->total; i++)
     {
         const float* sdata = (float*)reader.ptr + 1;
         float* ddata = data[0]->data.fl + var_count*i;
         float* dr = responses[0]->data.fl + i;
 
-        for (j = 0; j < var_count; j++)
+        for (int j = 0; j < var_count; j++)
             ddata[j] = sdata[j];
         *dr = sdata[-1];
         CV_NEXT_SEQ_ELEM(seq->elem_size, reader);
@@ -70,7 +128,7 @@ int build_rtrees_classifier(char* data_filename,
     CvMat* var_type = 0;
     CvMat* sample_idx = 0;
 
-    int ok = read_num_class_data(data_filename, 16, &data, &responses);
+    int ok = read_num_class_data(data_filename, 9, &data, &responses);
     int nsamples_all = 0, ntrain_samples = 0;
     int i = 0;
     double train_hr = 0, test_hr = 0;
@@ -122,19 +180,27 @@ int build_rtrees_classifier(char* data_filename,
         }
 
         // 3. train classifier
-        forest.train(data, // inputr data
+        forest.train(data, // input data
             CV_ROW_SAMPLE, // data is in rows
             responses, // respones
             0, // all features are important
             sample_idx, // ??
             var_type, // indicates that we're solving classification problem
             0, // missing data mask
-            CvRTParams(10, // max depth
+            CvRTParams
+            (10, // max depth
             10, // min sample count
             0, // regression accuracy
             false, // use surrogates ??
-            15, // 
-            0, true, 4, 100, 0.01f, CV_TERMCRIT_ITER));
+            15, // max categories
+            0,
+            true, // calculate var importance
+            4, // size of feature subset
+            100, // max num of trees in the forest
+            0.01f, // accuracy
+            CV_TERMCRIT_ITER  // termination type CV_TERMCRIT_ITER, CV_TERMCRIT_EPS, CV_TERMCRIT_ITER | CV_TERMCRIT_EPS
+            ) // CvRTParams
+            ); // train
         printf("\n");
     }
 
@@ -203,9 +269,13 @@ int main(int argc, char *argv[])
 {
     char* filename_to_save = 0;
     char* filename_to_load = 0;
-    char default_data_filename[] = "./letter-recognition.data";
-    char* data_filename = default_data_filename;
+    //char data_filename[] = "./newtrain.csv";
+    //char data_filename[] = "./letter-recognition.data";
+    char data_filename[] = "./test.csv";
 
     build_rtrees_classifier(data_filename, filename_to_save, filename_to_load);
+    printf("Done\n");
+
+    std::cin.ignore();
     return 0;
 }
