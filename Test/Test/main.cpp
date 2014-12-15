@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     char test_filename[] = "testt.csv";
     char results[] = "result.csv";
 
-    //build_rtrees_classifier(data_filename, save_model);
+    build_rtrees_classifier(data_filename, save_model);
     predict_rtrees(test_filename, load_model, results);
 
     std::cin.ignore();

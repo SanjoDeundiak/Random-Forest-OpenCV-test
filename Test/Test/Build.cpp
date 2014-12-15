@@ -38,27 +38,27 @@ int build_rtrees_classifier(char* data_filename, char* filename_to_save)
     cvSetReal1D(var_type, data->cols, CV_VAR_CATEGORICAL);
 
     // 2. train classifier
-    forest.train(data, // input data
-        CV_ROW_SAMPLE, // data is in rows
-        responses, // respones
-        0, // all features are important
-        0,//sample_idx, // ??
-        var_type, // indicates that we're solving classification problem
-        0, // missing data mask
+    forest.train(data,    // input data
+        CV_ROW_SAMPLE,    // data is in rows
+        responses,        // respones
+        0,                // important features matrix (0 - all features)
+        0,                // used values from dataset (0 - all values)
+        var_type,         // indicates that we're solving classification problem
+        0,                // missing data mask
         CvRTParams
-        (10, // max depth
-        10, // min sample count
-        0, // regression accuracy
-        false, // use surrogates ??
-        2, // max categories, used for clustering > 2 
-        0, // prior class probabilities
-        true, // calculate var importance
-        3, // size of feature subset ~sqrt(8)
-        150, // max num of trees in the forest
-        0.01f, // accuracy
+        (10,              // max depth
+        10,               // min sample count
+        0,                // regression accuracy
+        false,            // use surrogates ??
+        2,                // max categories, used for clustering when > 2 
+        0,                // prior class probabilities
+        true,             // calculate var importance
+        3,                // size of feature subset ~sqrt(8)
+        150,              // max num of trees in the forest
+        0.01f,            // accuracy
         CV_TERMCRIT_ITER  // termination type CV_TERMCRIT_ITER, CV_TERMCRIT_EPS, CV_TERMCRIT_ITER | CV_TERMCRIT_EPS
-        ) // CvRTParams
-        ); // train
+        )                 // CvRTParams
+        );                // train
 
     printf("\nTrain error %f\n", forest.get_train_error());
 
